@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>老加密软件 Easycode Boy Plus 解密成功但没有文件输出的解决办法</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #24292e;
+            background-color: #f6f8fa;
+        }
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 45px;
+            background-color: #ffffff;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        h1, h2, h3, h4, h5, h6 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+            color: #24292e;
+        }
+        h1 {
+            font-size: 2em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid #eaecef;
+        }
+        h2 {
+            font-size: 1.5em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid #eaecef;
+        }
+        h3 {
+            font-size: 1.25em;
+        }
+        p {
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+        strong {
+            font-weight: 600;
+        }
+        code {
+            padding: 0.2em 0.4em;
+            margin: 0;
+            font-size: 85%;
+            background-color: #f6f8fa;
+            border-radius: 3px;
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+        }
+        pre {
+            word-wrap: normal;
+            padding: 16px;
+            overflow: auto;
+            font-size: 85%;
+            line-height: 1.45;
+            background-color: #f6f8fa;
+            border-radius: 3px;
+            margin-bottom: 16px;
+        }
+        pre code {
+            display: inline;
+            max-width: auto;
+            padding: 0;
+            margin: 0;
+            overflow: visible;
+            line-height: inherit;
+            word-wrap: normal;
+            background-color: initial;
+            border: 0;
+        }
+        blockquote {
+            margin: 0 0 16px;
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+        }
+        ul {
+            padding-left: 2em;
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+        li {
+            margin-top: 0.25em;
+        }
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        hr {
+            height: 0.25em;
+            padding: 0;
+            margin: 24px 0;
+            background-color: #e1e4e8;
+            border: 0;
+        }
+        @media (max-width: 767px) {
+            .container {
+                padding: 20px;
+                margin: 20px auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>老加密软件 Easycode Boy Plus 解密成功但没有文件输出的解决办法</h1>
+
+        <p>最近偶然在网盘里发现了一个 <code>.bfh</code> 加密文件，想起来是很久以前用 Easycode Boy Plus 加密的，就试着解密看看内容。结果显示<strong>密码正确、解密成功</strong>，但始终看不到解密后的文件输出。我折腾了两天才搞清楚原因，简单记录一下，希望能帮到有需要的人。</p>
+
+        <h2>前提条件</h2>
+
+        <p>如果你也遇到了<strong>密码正确、显示解密成功但没有文件输出</strong>的情况，先看一下加密文件大小是不是超过了 2GB。更准确地说，是否超过：</p>
+
+        <pre><code>2^31 - 1 + 288</code></pre>
+
+        <p>如果是，本方法适用。我推测该软件用 <code>int</code> 变量记录文件大小，超过 2GiB 后发生溢出，最终导致没有文件输出。</p>
+
+        <p>如果文件大小没有超过 2GiB，那更可能是文件损坏导致的无输出。你仍然可以尝试本文方法，但很可能无效或只能得到不完整文件。</p>
+
+        <h2>原理</h2>
+
+        <p>我没有完全逆向 <code>ecboy plus</code>，但通过 <code>Process Monitor</code> 基本搞清了它的解密逻辑：</p>
+
+        <ul>
+            <li>解密时，软件会在加密文件同目录下创建一个同名的 <code>.$$$</code> 临时文件；</li>
+            <li>之后将数据解密并写入该临时文件；</li>
+            <li>解密完成后，把该临时文件重命名为元数据中记录的原文件名。</li>
+        </ul>
+
+        <p>而解密失败时，最后不会执行重命名流程，而是直接删除 <code>.$$$</code> 临时文件。<code>Process Monitor</code> 显示程序已经向临时文件写入了与原文件大小相当的字节数，因此我推测：<strong>解密本身已经完成</strong>，只是因为文件大小溢出导致最后校验不通过，程序误以为文件损坏并删除了临时文件。</p>
+
+        <h2>解决办法</h2>
+
+        <p>既然明文很可能已经写到了磁盘上，我们只需要阻止程序最后的删除，或把数据同步拷到别处即可。最简单的办法是使用 Windows 的<strong>硬链接</strong>：相当于给同一份数据再创建一个文件名。这样即使解密程序删除了 <code>.$$$</code> 临时文件名，我们也能保住数据。</p>
+
+        <p><strong>注意：硬链接只能在同一块硬盘（同一分区）内创建。</strong><br>
+        先确认你要解密的文件在哪个盘，然后在同一分区下随便找一个文件夹，右键选择“在终端中打开”，准备输入下面的命令（先别回车，后面说什么时候执行）：</p>
+
+        <pre><code>fsutil hardlink create '文件1' '文件2'</code></pre>
+
+        <ul>
+            <li><strong>文件1</strong>：你要保存的硬链接文件名（随便起，例如 <code>D:\recovered.bin</code>）</li>
+            <li><strong>文件2</strong>：<code>ecboy plus</code> 解密时创建的临时文件路径（<code>.$$$</code> 文件）</li>
+        </ul>
+
+        <p>举例：</p>
+
+        <ul>
+            <li>要解密的文件是 <code>D:\file.bin</code>，则临时文件通常是 <code>D:\file.$$$</code></li>
+            <li>如果加密时同步加密了文件名，比如 <code>D:\E5H1E2D7.bin</code>，则临时文件是 <code>D:\E5H1E2D7.$$$</code></li>
+        </ul>
+
+        <blockquote>
+            <p>特别注意：在 PowerShell 中请用<strong>英文单引号</strong>把路径括起来，避免 <code>$</code> 被当作变量解析。</p>
+        </blockquote>
+
+        <p>把命令输好后先不要回车。接着打开 <code>ecboy plus</code> 开始解密操作，出现等待窗口后立刻回到终端执行命令。正常的话会提示“硬连接已创建”。这一过程不必太紧张：解密 2GiB 以上文件通常需要二三十秒，时间足够执行命令。</p>
+
+        <p>软件提示解密成功后就可以关掉了。此时 <strong>文件1</strong> 就是保留下来的解密结果。文件名可能不是原来的名字：</p>
+
+        <ul>
+            <li>如果你记得原文件类型，直接改扩展名即可打开；</li>
+            <li>如果完全不记得，可以用十六进制查看器看文件头，网上搜一下（或问 AI）判断格式，再改成对应扩展名打开。</li>
+        </ul>
+    </div>
+</body>
+</html>
